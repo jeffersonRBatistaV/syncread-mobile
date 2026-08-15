@@ -15,12 +15,12 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import READER_HTML from './readerHtml';
 
 // URL del servidor SyncRead (cambiar a syncread.resuelveya.com cuando el DNS funcione)
 const SERVER_URL = 'http://207.244.232.191';
 const BOOKS_DIR = FileSystem.documentDirectory + 'books/';
 const METADATA_KEY = 'syncread_offline_books';
-const READER_HTML = require('./assets/reader-offline.html');
 
 async function ensureDir() {
   try {
