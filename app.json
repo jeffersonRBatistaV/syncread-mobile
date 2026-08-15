@@ -32,6 +32,16 @@
         "projectId": "3e383ed7-5b0b-4874-a531-3272ccdf014a"
       }
     },
-    "owner": "soldierb0y"
+    "owner": "soldierb0y",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ]
   }
 }
