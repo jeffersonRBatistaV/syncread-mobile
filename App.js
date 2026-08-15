@@ -80,6 +80,15 @@ export default function App() {
           existing.push({ id: msg.bookId, title: msg.title, author: msg.author, coverPath: msg.coverPath });
           await AsyncStorage.setItem(METADATA_KEY, JSON.stringify(existing));
           setOfflineBooks(existing);
+        } else if (msg.type === 'delete') {
+          // El libro se eliminó desde la web — borrar copia local también
+          try {
+            await FileSystem.deleteAsync(`${BOOKS_DIR}${msg.bookId}.epub`, { idempotent: true });
+          } catch {}
+          const raw = await AsyncStorage.getItem(METADATA_KEY);
+          const list = raw ? JSON.parse(raw) : [];
+          await AsyncStorage.setItem(METADATA_KEY, JSON.stringify(list.filter((b) => b.id !== msg.bookId)));
+          setOfflineBooks(list.filter((b) => b.id !== msg.bookId));
         } else if (msg.type === 'close') {
           setReadingBook(null);
         }

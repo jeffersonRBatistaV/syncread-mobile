@@ -100,15 +100,52 @@ function openBook() {
     });
     rendition.on('relocated', function(location) {
       var start = location && location.start;
-      if (start && start.displayed && start.displayed.page != null) {
-        document.getElementById('counter').textContent = 'Página ' + start.displayed.page + ' de ' + start.displayed.total;
+      // Páginas GLOBALES del libro completo (locations — estables por caracteres)
+      var totalLocs = window.__totalLocs || 0;
+      var page = null;
+      var total = null;
+      if (totalLocs && book && book.locations) {
+        try {
+          var cfi = start.cfi;
+          if (Object.prototype.toString.call(cfi) === '[object Array]') cfi = cfi[0];
+          var pct = book.locations.percentageFromCfi(cfi);
+          if (pct != null && isFinite(pct)) {
+            page = Math.max(1, Math.min(totalLocs, Math.ceil(pct * totalLocs)));
+            total = totalLocs;
+          }
+        } catch(e) {}
+      }
+      if (page != null && total != null) {
+        document.getElementById('counter').textContent = 'Página ' + page + ' de ' + total;
+      } else if (start && start.percentage != null) {
+        document.getElementById('counter').textContent = Math.max(1, Math.min(100, Math.round(start.percentage * 100))) + '%';
       }
     });
     book.ready.then(function() {
       var title = book.metadata && book.metadata.title;
       if (title) document.getElementById('title').textContent = title;
       document.getElementById('loading').style.display = 'none';
+      // Generar paginación global del libro completo (estable entre pantallas)
+      return book.locations.generate(1400).then(function() {
+        window.__totalLocs = book.locations.length();
+      }).catch(function() {});
+    }).then(function() {
       return rendition.display();
+    }).then(function() {
+      // Refrescar contador con el total global
+      if (window.__totalLocs && rendition.currentLocation()) {
+        var loc = rendition.currentLocation();
+        var start = loc && loc.start;
+        if (start) {
+          var cfi = start.cfi;
+          if (Object.prototype.toString.call(cfi) === '[object Array]') cfi = cfi[0];
+          var pct = book.locations.percentageFromCfi(cfi);
+          if (pct != null && isFinite(pct)) {
+            var page = Math.max(1, Math.min(window.__totalLocs, Math.ceil(pct * window.__totalLocs)));
+            document.getElementById('counter').textContent = 'Página ' + page + ' de ' + window.__totalLocs;
+          }
+        }
+      }
     }).catch(function() {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('error').style.display = 'flex';
