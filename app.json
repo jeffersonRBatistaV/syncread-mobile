@@ -1,24 +1,37 @@
 {
   "expo": {
-    "name": "syncread-mobile",
-    "slug": "syncread-mobile",
+    "name": "SyncRead",
+    "slug": "syncread",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0A0A0A",
+    "splash": {
+      "backgroundColor": "#0A0A0A"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.resuelveya.syncread"
     },
     "android": {
+      "package": "com.resuelveya.syncread",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0A0A0A",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3e383ed7-5b0b-4874-a531-3272ccdf014a"
+      }
+    },
+    "owner": "soldierb0y"
   }
 }
