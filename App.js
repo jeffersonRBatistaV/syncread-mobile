@@ -9,6 +9,7 @@ import {
   FlatList,
   ActivityIndicator,
   Image,
+  BackHandler,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -46,6 +47,33 @@ export default function App() {
     });
     return unsub;
   }, []);
+
+  // Botón de retroceso de Android: navegar hacia atrás en lugar de cerrar la app
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      // 1. Si el lector offline está abierto → volver a la biblioteca
+      if (readingBook) {
+        setReadingBook(null);
+        return true;
+      }
+      // 2. Si el WebView tiene historia → retroceder dentro de la app
+      try {
+        if (webviewRef.current) {
+          const canBack =
+            typeof webviewRef.current.canGoBack === 'function'
+              ? webviewRef.current.canGoBack()
+              : webviewRef.current.canGoBack === true;
+          if (canBack) {
+            webviewRef.current.goBack();
+            return true;
+          }
+        }
+      } catch {}
+      // 3. En la raíz → permitir que el sistema cierre la app
+      return false;
+    });
+    return () => sub.remove();
+  }, [readingBook]);
 
   // Cargar libros guardados en filesystem
   const loadOfflineBooks = useCallback(async () => {
