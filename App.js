@@ -232,7 +232,7 @@ function AppInner() {
         <StatusBar style="light" />
         <WebView
           originWhitelist={['*']}
-          source={{ uri: `file://${readingBook.htmlPath}` }}
+          source={{ uri: readingBook.htmlPath }}
           style={styles.webview}
           javaScriptEnabled
           domStorageEnabled
