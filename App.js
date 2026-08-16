@@ -38,14 +38,13 @@ export default function App() {
   const webviewRef = useRef(null);
   const isConnectedRef = useRef(true);
 
-  // Health check real al servidor (no solo red local): si el servidor no
-  // responde en 5s, se considera OFFLINE y la app muestra la biblioteca nativa.
+  // Health check real al servidor: si no responde en 3s → OFFLINE.
+  // Promise.race es más confiable que AbortController en React Native.
   const checkServer = useCallback(async () => {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(`${SERVER_URL}/api/health`, { signal: controller.signal });
-      clearTimeout(timer);
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000));
+      const ping = fetch(`${SERVER_URL}/api/health`, { headers: { 'Cache-Control': 'no-cache' } });
+      const res = await Promise.race([ping, timeout]);
       const ok = res.ok;
       if (ok !== isConnectedRef.current) {
         isConnectedRef.current = ok;
@@ -66,7 +65,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     const unsub = NetInfo.addEventListener((state) => {
-      const connected = state.isConnected !== false;
+      const connected = state.isConnected !== false && state.isInternetReachable !== false;
       if (connected) {
         // Hay red local — confirmar con health check antes de mostrar el WebView
         checkServer();
@@ -130,18 +129,40 @@ export default function App() {
     loadOfflineBooks();
   }, [loadOfflineBooks]);
 
-  // Guardar EPUB que llega desde la web (postMessage del WebView)
+  // Guardar EPUB que llega desde la web (postMessage del WebView).
+  // La web SOLO avisa "descarga el libro X" — la app descarga el EPUB
+  // directamente del servidor (fetch nativo), evitando el límite del bridge
+  // postMessage que trunca el base64 grande en Android.
   const handleMessage = useCallback(
     async (event) => {
       try {
         const msg = JSON.parse(event.nativeEvent.data);
-        if (msg.type === 'download' && msg.epubBase64) {
+        if (msg.type === 'download') {
           await ensureDir();
           const filePath = `${BOOKS_DIR}${msg.bookId}.epub`;
-          await FileSystem.writeAsStringAsync(filePath, msg.epubBase64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          // Actualizar metadata local
+          try {
+            // Descargar el EPUB desde el servidor con el token de la sesión
+            const res = await fetch(`${SERVER_URL}/api/books/${msg.bookId}/file`, {
+              headers: { Authorization: `Bearer ${msg.token}` },
+            });
+            if (!res.ok) return;
+            const buf = await res.arrayBuffer();
+            const b64 = await new Promise((resolve, reject) => {
+              try {
+                const bytes = new Uint8Array(buf);
+                let bin = '';
+                const CHUNK = 0x8000;
+                for (let i = 0; i < bytes.length; i += CHUNK) {
+                  bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+                }
+                resolve(btoa(bin));
+              } catch (e) { reject(e); }
+            });
+            await FileSystem.writeAsStringAsync(filePath, b64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+          } catch { return; }
+          // Actualizar metadata local (título/portada desde la web)
           const raw = await AsyncStorage.getItem(METADATA_KEY);
           const list = raw ? JSON.parse(raw) : [];
           const existing = list.filter((b) => b.id !== msg.bookId);
