@@ -29,10 +29,22 @@ const READER_HTML = `<!DOCTYPE html>
   .bottombar {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
     display: flex; align-items: center; justify-content: center;
-    padding: 6px 0; padding-bottom: var(--safe-bottom);
+    padding: 6px 12px; padding-bottom: var(--safe-bottom);
     background: rgba(10,10,10,0.92); border-top: 1px solid #1F1F23;
   }
-  .bottombar span { font-size: 12px; color: #8A8A93; font-variant-numeric: tabular-nums; }
+  .bottombar span { font-size: 12px; color: #8A8A93; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .slider {
+    flex: 1; margin: 0 12px; height: 4px;
+    -webkit-appearance: none; appearance: none;
+    background: #1F1F23; border-radius: 999px; outline: none;
+    touch-action: none;
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #EDEDED; border: 2px solid #5E6AD2; cursor: pointer;
+  }
+  .slider:disabled { opacity: 0.4; }
   .zone { position: fixed; top: calc(var(--safe-top) + 48px); bottom: calc(var(--safe-bottom) + 36px); width: 25%; z-index: 10; }
   .zone.left { left: 0; }
   .zone.right { right: 0; }
@@ -60,7 +72,10 @@ const READER_HTML = `<!DOCTYPE html>
 <div class="zone left" onclick="goPrev()"></div>
 <div class="zone right" onclick="goNext()"></div>
 <div id="host"></div>
-<div class="bottombar"><span id="counter"></span></div>
+<div class="bottombar">
+  <input type="range" id="progress" min="0" max="100" step="1" value="0" class="slider" aria-label="Barra de progreso del libro">
+  <span id="counter"></span>
+</div>
 <div id="loading"><div class="spinner"></div><span>Cargando libro…</span></div>
 <div id="error">No se pudo abrir el libro</div>
 
@@ -22148,6 +22163,11 @@ function openBook() {
           if (pct != null && isFinite(pct)) {
             page = Math.max(1, Math.min(totalLocs, Math.ceil(pct * totalLocs)));
             total = totalLocs;
+            // Mover el slider (no mientras el usuario lo arrastra)
+            if (!window.__seeking) {
+              var slider = document.getElementById('progress');
+              if (slider) slider.value = Math.round(pct * 100);
+            }
           }
         } catch(e) {}
       }
@@ -22216,6 +22236,46 @@ document.addEventListener('touchend', function(e) {
   if (x < w * 0.25) goPrev();
   else if (x > w * 0.75) goNext();
 });
+
+// Barra de progreso: navegación en vivo con coalescing (igual que la web)
+(function() {
+  var slider = document.getElementById('progress');
+  if (!slider) return;
+  window.__seeking = false;
+  var pending = null;
+  var pumping = false;
+  var pump = function() {
+    if (pumping) return;
+    pumping = true;
+    var step = function() {
+      if (pending != null && book && book.locations) {
+        var target = pending;
+        pending = null;
+        try {
+          var cfi = book.locations.cfiFromPercentage(target / 100);
+          if (cfi && rendition) rendition.display(cfi);
+        } catch(e) {}
+        requestAnimationFrame(step);
+      } else {
+        pumping = false;
+      }
+    };
+    step();
+  };
+  slider.addEventListener('input', function(e) {
+    var v = Number(e.target.value);
+    pending = Math.max(0, Math.min(100, v));
+    if (!pump.pendingStart) { pump.pendingStart = true; pump(); }
+  });
+  slider.addEventListener('change', function(e) {
+    var v = Number(e.target.value);
+    window.__seeking = false;
+    pending = Math.max(0, Math.min(100, v));
+    pump();
+  });
+  slider.addEventListener('pointerdown', function() { window.__seeking = true; });
+  slider.addEventListener('pointerup', function() { window.__seeking = false; });
+})();
 
 openBook();
 </script>

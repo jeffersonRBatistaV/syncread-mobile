@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
+  TextInput,
   View,
   TouchableOpacity,
   FlatList,
@@ -44,6 +45,7 @@ function AppInner() {
   const [isConnected, setIsConnected] = useState(true);
   const [offlineBooks, setOfflineBooks] = useState([]);
   const [readingBook, setReadingBook] = useState(null); // { id, title, epubBase64 }
+  const [offlineSearch, setOfflineSearch] = useState('');
   const webviewRef = useRef(null);
   const isConnectedRef = useRef(true);
 
@@ -197,6 +199,16 @@ function AppInner() {
 
   const openOfflineBook = async (book) => {
     try {
+      // Registrar la lectura (para ordenar "recientemente leídos" primero)
+      try {
+        const raw = await AsyncStorage.getItem(METADATA_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        const updated = list.map((b) =>
+          String(b.id) === String(book.id) ? { ...b, lastReadAt: Date.now() } : b
+        );
+        await AsyncStorage.setItem(METADATA_KEY, JSON.stringify(updated));
+        setOfflineBooks(updated);
+      } catch {}
       const filePath = `${BOOKS_DIR}${book.id}.epub`;
       const info = await FileSystem.getInfoAsync(filePath);
       if (!info.exists) return;
@@ -269,6 +281,19 @@ function AppInner() {
               : 'Descarga libros estando conectado'}
           </Text>
         </View>
+        {offlineBooks.length > 0 && (
+          <View style={styles.searchWrap}>
+            <TextInput
+              value={offlineSearch}
+              onChangeText={setOfflineSearch}
+              placeholder="Buscar libro o autor…"
+              placeholderTextColor="#8A8A93"
+              style={styles.searchInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+        )}
         {offlineBooks.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No hay libros descargados</Text>
@@ -276,9 +301,24 @@ function AppInner() {
           </View>
         ) : (
           <FlatList
-            data={offlineBooks}
+            data={[...offlineBooks]
+              // Ordenar: recientemente leídos primero (los nunca leídos al final)
+              .sort((a, b) => (b.lastReadAt || 0) - (a.lastReadAt || 0))
+              .filter((item) => {
+              if (!offlineSearch.trim()) return true;
+              const q = offlineSearch.trim().toLowerCase();
+              return (
+                (item.title || '').toLowerCase().includes(q) ||
+                (item.author || '').toLowerCase().includes(q)
+              );
+            })}
             keyExtractor={(item) => String(item.id)}
             contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Sin resultados para "{offlineSearch}"</Text>
+              </View>
+            }
             renderItem={({ item }) => (
               <View style={styles.bookRow}>
                 <TouchableOpacity style={styles.bookInfo} onPress={() => openOfflineBook(item)}>
@@ -409,6 +449,20 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+  },
+  searchWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  searchInput: {
+    backgroundColor: '#131316',
+    borderWidth: 1,
+    borderColor: '#1F1F23',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#EDEDED',
+    fontSize: 14,
   },
   bookRow: {
     flexDirection: 'row',
