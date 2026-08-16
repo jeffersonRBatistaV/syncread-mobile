@@ -311,6 +311,17 @@ export default function App() {
           </View>
         )}
         onMessage={handleMessage}
+        onLoadEnd={() => {
+          // Inyectar la lista REAL de libros descargados en el filesystem de la
+          // app — la fuente de verdad. Así la web marca correctamente el estado
+          // "Descargado" aunque se haya borrado offline desde la biblioteca nativa.
+          try {
+            const ids = offlineBooks.map((b) => b.id);
+            webviewRef.current?.injectJavaScript(
+              `window.__syncread_offline_ids = ${JSON.stringify(ids)}; window.dispatchEvent(new Event('syncread-offline-sync')); true;`
+            );
+          } catch {}
+        }}
         onError={() => {
           // La web no cargó — pasar a modo offline nativo (biblioteca local)
           isConnectedRef.current = false;
