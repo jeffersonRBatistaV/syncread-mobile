@@ -15,7 +15,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import READER_HTML from './readerHtml';
 
 // URL del servidor SyncRead (HTTPS con Let's Encrypt vía sslip.io)
@@ -228,7 +228,7 @@ function AppInner() {
   // MODO LECTOR OFFLINE: WebView cargando el HTML (con EPUB embebido) desde file://
   if (readingBook) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.container}>
         <StatusBar style="light" />
         <WebView
           originWhitelist={['*']}
@@ -246,7 +246,7 @@ function AppInner() {
             } catch {}
           }}
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -299,9 +299,9 @@ function AppInner() {
     );
   }
 
-  // MODO ONLINE: WebView normal al servidor
+  // MODO ONLINE: WebView normal al servidor (la web maneja sus propios safe-areas con env())
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <View style={styles.container}>
       <StatusBar style="light" />
       <WebView
         ref={webviewRef}
@@ -340,7 +340,7 @@ function AppInner() {
           setIsConnected(false);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
