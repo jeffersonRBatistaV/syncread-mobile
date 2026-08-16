@@ -13,14 +13,14 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useKeepAwake } from 'expo-keep-awake';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import READER_HTML from './readerHtml';
 
 // URL del servidor SyncRead (HTTPS con Let's Encrypt vía sslip.io)
 const SERVER_URL = 'https://syncread.207.244.232.191.sslip.io';
-const BOOKS_DIR = FileSystem.documentDirectory + 'books/';
+const BOOKS_DIR = (FileSystem.documentDirectory || '') + 'books/';
 const METADATA_KEY = 'syncread_offline_books';
 
 async function ensureDir() {
