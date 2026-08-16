@@ -38,15 +38,55 @@ export default function App() {
   const webviewRef = useRef(null);
   const isConnectedRef = useRef(true);
 
-  // Detectar conectividad
+  // Health check real al servidor (no solo red local): si el servidor no
+  // responde en 5s, se considera OFFLINE y la app muestra la biblioteca nativa.
+  const checkServer = useCallback(async () => {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(`${SERVER_URL}/api/health`, { signal: controller.signal });
+      clearTimeout(timer);
+      const ok = res.ok;
+      if (ok !== isConnectedRef.current) {
+        isConnectedRef.current = ok;
+        setIsConnected(ok);
+      }
+      return ok;
+    } catch {
+      if (isConnectedRef.current) {
+        isConnectedRef.current = false;
+        setIsConnected(false);
+      }
+      return false;
+    }
+  }, []);
+
+  // Detectar conectividad: NetInfo da avisos rápidos, pero la verdad la dice
+  // el health check (NetInfo solo sabe si hay red local, no internet real).
   useEffect(() => {
+    let cancelled = false;
     const unsub = NetInfo.addEventListener((state) => {
       const connected = state.isConnected !== false;
-      isConnectedRef.current = connected;
-      setIsConnected(connected);
+      if (connected) {
+        // Hay red local — confirmar con health check antes de mostrar el WebView
+        checkServer();
+      } else if (isConnectedRef.current) {
+        isConnectedRef.current = false;
+        setIsConnected(false);
+      }
     });
-    return unsub;
-  }, []);
+    // Primer chequeo al montar
+    checkServer();
+    // Re-chequear cada 8s (si el WebView se queda cargando, se detecta y pasa a offline)
+    const interval = setInterval(() => {
+      if (!cancelled) checkServer();
+    }, 8000);
+    return () => {
+      cancelled = true;
+      unsub();
+      clearInterval(interval);
+    };
+  }, [checkServer]);
 
   // Botón de retroceso de Android: navegar hacia atrás en lugar de cerrar la app
   useEffect(() => {
@@ -232,10 +272,21 @@ export default function App() {
         startInLoadingState
         setSupportMultipleWindows={false}
         allowsBackForwardNavigationGestures
+        renderLoading={() => (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#5E6AD2" />
+            <Text style={styles.loadingText}>Conectando…</Text>
+          </View>
+        )}
         onMessage={handleMessage}
         onError={() => {
-          // Si la web no carga, intentar modo offline
-          if (!isConnectedRef.current) setIsConnected(false);
+          // La web no cargó — pasar a modo offline nativo (biblioteca local)
+          isConnectedRef.current = false;
+          setIsConnected(false);
+        }}
+        onHttpError={() => {
+          isConnectedRef.current = false;
+          setIsConnected(false);
         }}
       />
     </SafeAreaView>
@@ -250,6 +301,21 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: '#0A0A0A',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0A0A0A',
+    gap: 12,
+  },
+  loadingText: {
+    color: '#8A8A93',
+    fontSize: 13,
   },
   offlineHeader: {
     paddingTop: 16,
