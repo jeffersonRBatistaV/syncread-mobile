@@ -15,7 +15,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import READER_HTML from './readerHtml';
 
 // URL del servidor SyncRead (HTTPS con Let's Encrypt vía sslip.io)
@@ -40,6 +40,7 @@ export default function App() {
 
 function AppInner() {
   useKeepAwake();
+  const safeInsets = useSafeAreaInsets();
   const [isConnected, setIsConnected] = useState(true);
   const [offlineBooks, setOfflineBooks] = useState([]);
   const [readingBook, setReadingBook] = useState(null); // { id, title, epubBase64 }
@@ -205,7 +206,12 @@ function AppInner() {
       // Escribir el HTML completo (lector + EPUB base64) a un archivo y cargarlo
       // vía file:// — source={{ html }} de react-native-webview trunca datos
       // grandes (~1MB) en Android y el libro no abre.
-      const htmlWithEpub = READER_HTML.replace('__EPUB_BASE64_PLACEHOLDER__', b64);
+      // Inyectar los safe-areas REALES del dispositivo (env() no funciona en file://):
+      // la app nativa conoce los insets exactos de la barra de estado y navegación.
+      let htmlWithEpub = READER_HTML
+        .replace('__EPUB_BASE64_PLACEHOLDER__', b64)
+        .replace('env(safe-area-inset-top, 0px)', `${safeInsets.top}px`)
+        .replace('env(safe-area-inset-bottom, 0px)', `${safeInsets.bottom}px`);
       const htmlPath = `${BOOKS_DIR}reader_${book.id}.html`;
       await FileSystem.writeAsStringAsync(htmlPath, htmlWithEpub, {
         encoding: FileSystem.EncodingType.UTF8,
