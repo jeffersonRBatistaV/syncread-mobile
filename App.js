@@ -1,7 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -16,6 +15,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import READER_HTML from './readerHtml';
 
 // URL del servidor SyncRead (HTTPS con Let's Encrypt vía sslip.io)
@@ -31,6 +31,14 @@ async function ensureDir() {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppInner />
+    </SafeAreaProvider>
+  );
+}
+
+function AppInner() {
   useKeepAwake();
   const [isConnected, setIsConnected] = useState(true);
   const [offlineBooks, setOfflineBooks] = useState([]);
@@ -220,7 +228,7 @@ export default function App() {
   // MODO LECTOR OFFLINE: WebView cargando el HTML (con EPUB embebido) desde file://
   if (readingBook) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <StatusBar style="light" />
         <WebView
           originWhitelist={['*']}
@@ -245,7 +253,7 @@ export default function App() {
   // MODO OFFLINE: biblioteca nativa con libros descargados
   if (!isConnected) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <StatusBar style="light" />
         <View style={styles.offlineHeader}>
           <Text style={styles.offlineTitle}>Sin conexión</Text>
@@ -293,7 +301,7 @@ export default function App() {
 
   // MODO ONLINE: WebView normal al servidor
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar style="light" />
       <WebView
         ref={webviewRef}
