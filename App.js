@@ -194,13 +194,22 @@ export default function App() {
       const b64 = await FileSystem.readAsStringAsync(filePath, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      setReadingBook({ id: book.id, title: book.title, epubBase64: b64 });
+      // Escribir el HTML completo (lector + EPUB base64) a un archivo y cargarlo
+      // vía file:// — source={{ html }} de react-native-webview trunca datos
+      // grandes (~1MB) en Android y el libro no abre.
+      const htmlWithEpub = READER_HTML.replace('__EPUB_BASE64_PLACEHOLDER__', b64);
+      const htmlPath = `${BOOKS_DIR}reader_${book.id}.html`;
+      await FileSystem.writeAsStringAsync(htmlPath, htmlWithEpub, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      setReadingBook({ id: book.id, title: book.title, htmlPath });
     } catch {}
   };
 
   const removeOfflineBook = async (book) => {
     try {
       await FileSystem.deleteAsync(`${BOOKS_DIR}${book.id}.epub`, { idempotent: true });
+      await FileSystem.deleteAsync(`${BOOKS_DIR}reader_${book.id}.html`, { idempotent: true });
       const raw = await AsyncStorage.getItem(METADATA_KEY);
       const list = raw ? JSON.parse(raw) : [];
       await AsyncStorage.setItem(METADATA_KEY, JSON.stringify(list.filter((b) => b.id !== book.id)));
@@ -208,18 +217,20 @@ export default function App() {
     } catch {}
   };
 
-  // MODO LECTOR OFFLINE: WebView con el HTML standalone + EPUB inyectado
+  // MODO LECTOR OFFLINE: WebView cargando el HTML (con EPUB embebido) desde file://
   if (readingBook) {
-    const htmlWithEpub = READER_HTML.replace('__EPUB_BASE64_PLACEHOLDER__', readingBook.epubBase64);
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <WebView
           originWhitelist={['*']}
-          source={{ html: htmlWithEpub, baseUrl: 'file:///android_asset/' }}
+          source={{ uri: `file://${readingBook.htmlPath}` }}
           style={styles.webview}
           javaScriptEnabled
           domStorageEnabled
+          allowFileAccess
+          allowFileAccessFromFileURLs
+          allowUniversalAccessFromFileURLs
           onMessage={(e) => {
             try {
               const msg = JSON.parse(e.nativeEvent.data);
