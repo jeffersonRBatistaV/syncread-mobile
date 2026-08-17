@@ -19,8 +19,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import READER_HTML from './readerHtml';
 
-// URL del servidor SyncRead (HTTPS con Let's Encrypt vía sslip.io)
-const SERVER_URL = 'https://syncread.207.244.232.191.sslip.io';
+// URL del servidor SyncRead — definir EXPO_PUBLIC_SERVER_URL en .env o en el build
+const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3002';
 const BOOKS_DIR = (FileSystem.documentDirectory || '') + 'books/';
 const METADATA_KEY = 'syncread_offline_books';
 
