@@ -184,11 +184,23 @@ function AppInner() {
           // El libro se eliminó desde la web — borrar copia local también
           try {
             await FileSystem.deleteAsync(`${BOOKS_DIR}${msg.bookId}.epub`, { idempotent: true });
+            await FileSystem.deleteAsync(`${BOOKS_DIR}reader_${msg.bookId}.html`, { idempotent: true });
           } catch {}
           const raw = await AsyncStorage.getItem(METADATA_KEY);
           const list = raw ? JSON.parse(raw) : [];
           await AsyncStorage.setItem(METADATA_KEY, JSON.stringify(list.filter((b) => b.id !== msg.bookId)));
           setOfflineBooks(list.filter((b) => b.id !== msg.bookId));
+        } else if (msg.type === 'update-meta') {
+          // Metadata editada desde la web — actualizar copia local
+          const raw = await AsyncStorage.getItem(METADATA_KEY);
+          const list = raw ? JSON.parse(raw) : [];
+          const updated = list.map((b) =>
+            String(b.id) === String(msg.bookId)
+              ? { ...b, title: msg.title, author: msg.author || '' }
+              : b
+          );
+          await AsyncStorage.setItem(METADATA_KEY, JSON.stringify(updated));
+          setOfflineBooks(updated);
         } else if (msg.type === 'close') {
           setReadingBook(null);
         }
